@@ -1,5 +1,6 @@
 export type UserRole = 'admin' | 'manager' | 'trader'
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled'
+export type BillingCycle = 'monthly' | 'yearly' | 'one_time'
 export type TradeDirection = 'buy' | 'sell'
 export type TradeStatus =
   | 'draft'
@@ -34,6 +35,21 @@ export type Subscription = {
   status: SubscriptionStatus
   start_date: string
   end_date: string | null
+  created_at: string
+}
+
+export type Package = {
+  id: string
+  name: string
+  description: string
+  price: number
+  billing_cycle: BillingCycle
+  max_trades: number
+  max_journal_entries: number
+  telegram_enabled: boolean
+  analytics_enabled: boolean
+  admin_features_enabled: boolean
+  is_active: boolean
   created_at: string
 }
 
@@ -117,6 +133,14 @@ export type TelegramSettings = {
   updated_at: string
 }
 
+export type AdminSetting = {
+  id: string
+  setting_key: string
+  setting_value: unknown
+  created_at: string
+  updated_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -148,6 +172,25 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Omit<Subscription, 'id' | 'user_id' | 'created_at'>>
+        Relationships: []
+      }
+      packages: {
+        Row: Package
+        Insert: {
+          id?: string
+          name: string
+          description: string
+          price?: number
+          billing_cycle: BillingCycle
+          max_trades?: number
+          max_journal_entries?: number
+          telegram_enabled?: boolean
+          analytics_enabled?: boolean
+          admin_features_enabled?: boolean
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: Partial<Omit<Package, 'id' | 'created_at'>>
         Relationships: []
       }
       trades: {
@@ -248,6 +291,18 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Omit<TelegramSettings, 'id' | 'user_id' | 'created_at'>>
+        Relationships: []
+      }
+      admin_settings: {
+        Row: AdminSetting
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value?: unknown
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Omit<AdminSetting, 'id' | 'created_at'>>
         Relationships: []
       }
     }
