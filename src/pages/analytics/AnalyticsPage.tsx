@@ -15,6 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { UpgradePrompt } from '../../components/billing/UpgradePrompt'
 import { GlassCard } from '../../components/ui/GlassCard'
 import { Input } from '../../components/ui/Input'
 import { LoadingState } from '../../components/ui/LoadingState'
@@ -22,6 +23,7 @@ import { PageTitle } from '../../components/ui/PageTitle'
 import { Select } from '../../components/ui/Select'
 import { StatCard } from '../../components/ui/StatCard'
 import { useAuth } from '../../hooks/useAuth'
+import { usePackageAccess } from '../../hooks/usePackageAccess'
 import {
   bestWorstByDay,
   buildEquityCurve,
@@ -76,6 +78,7 @@ function BarCells({ data }: { data: ChartPoint[] }) {
 
 export function AnalyticsPage() {
   const { user } = useAuth()
+  const packageAccess = usePackageAccess()
   const [trades, setTrades] = useState<Trade[]>([])
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [filters, setFilters] = useState<AnalyticsFilters>({
@@ -220,6 +223,15 @@ export function AnalyticsPage() {
         <StatCard helper="Worst filtered day" label="Worst Day" tone={stats.worstDay === 'No day data' ? 'neutral' : 'loss'} value={stats.worstDay} />
       </section>
 
+      {!packageAccess.features.advancedAnalytics ? (
+        <UpgradePrompt
+          description="Starter includes summary analytics. Upgrade to Pro or Business to unlock advanced chart packs, setup breakdowns, mistake frequency, and export-ready analysis."
+          feature="advancedAnalytics"
+          title="Advanced analytics are locked"
+        />
+      ) : null}
+
+      {packageAccess.features.advancedAnalytics ? (
       <section className="grid gap-5 xl:grid-cols-2">
         <ChartShell description="Cumulative P/L across filtered trades." title="Equity Curve">
           {equityCurve.length ? (
@@ -335,6 +347,7 @@ export function AnalyticsPage() {
           ) : <EmptyChart title="No mistake data" />}
         </ChartShell>
       </section>
+      ) : null}
 
       <GlassCard>
         <h2 className="text-lg font-semibold text-white">Profit Factor</h2>

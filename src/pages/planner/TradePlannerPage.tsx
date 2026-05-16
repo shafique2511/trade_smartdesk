@@ -11,6 +11,8 @@ import { StatCard } from '../../components/ui/StatCard'
 import { Table } from '../../components/ui/Table'
 import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
+import { usePackageAccess } from '../../hooks/usePackageAccess'
+import { countRecordsThisMonth, isLimitReached } from '../../lib/packageAccess'
 import { calculateDailyProfitLoss, getRiskStatus, getTodayTrades, shouldLockNewTrades } from '../../lib/risk'
 import { supabase } from '../../lib/supabase'
 import {
@@ -38,6 +40,7 @@ function currency(value: number) {
 
 export function TradePlannerPage() {
   const { user } = useAuth()
+  const packageAccess = usePackageAccess()
   const navigate = useNavigate()
   const [form, setForm] = useState<TradePlannerForm>(initialTradePlannerForm)
   const [selectedFileName, setSelectedFileName] = useState('')
@@ -45,6 +48,7 @@ export function TradePlannerPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [riskSettings, setRiskSettings] = useState<RiskSettings | null>(null)
   const [todayTrades, setTodayTrades] = useState<Trade[]>([])
+  const [monthlyTradeCount, setMonthlyTradeCount] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -52,9 +56,14 @@ export function TradePlannerPage() {
     async function loadRiskDefaults() {
       if (!user) return
 
-      const [settingsResult, tradesResult] = await Promise.all([
+      const monthStart = new Date()
+      monthStart.setDate(1)
+      monthStart.setHours(0, 0, 0, 0)
+
+      const [settingsResult, tradesResult, monthlyTradesResult] = await Promise.all([
         supabase.from('risk_settings').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('trades').select('*').eq('user_id', user.id).gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+        supabase.from('trades').select('id, created_at').eq('user_id', user.id).gte('created_at', monthStart.toISOString()),
       ])
 
       if (cancelled) return
@@ -62,6 +71,7 @@ export function TradePlannerPage() {
       const data = settingsResult.data
       setRiskSettings(data ?? null)
       setTodayTrades(getTodayTrades(tradesResult.data ?? []))
+      setMonthlyTradeCount(countRecordsThisMonth(monthlyTradesResult.data ?? []))
       if (!data) return
 
       setForm((current) => ({
@@ -82,6 +92,7 @@ export function TradePlannerPage() {
   const dailyProfitLoss = useMemo(() => calculateDailyProfitLoss(todayTrades), [todayTrades])
   const riskStatus = useMemo(() => getRiskStatus(riskSettings, dailyProfitLoss, todayTrades.length), [dailyProfitLoss, riskSettings, todayTrades.length])
   const tradeCreationLocked = shouldLockNewTrades(riskSettings, riskStatus)
+  const monthlyTradeLimitReached = isLimitReached(packageAccess.maxTrades, monthlyTradeCount)
 
   function updateField<Field extends keyof TradePlannerForm>(field: Field, value: TradePlannerForm[Field]) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -115,6 +126,11 @@ export function TradePlannerPage() {
       return null
     }
 
+    if (monthlyTradeLimitReached) {
+      setMessage({ type: 'error', text: `${packageAccess.packageName} allows ${packageAccess.maxTrades} trades per month. Upgrade to create more trade plans.` })
+      return null
+    }
+
     setIsSaving(true)
     setMessage(null)
 
@@ -130,6 +146,7 @@ export function TradePlannerPage() {
 
     setMessage({ type: 'success', text: `Trade plan saved as ${statusOverride ?? form.status}.` })
     setTodayTrades((current) => [data, ...current])
+    setMonthlyTradeCount((current) => current + 1)
     return data
   }
 
@@ -156,10 +173,10 @@ export function TradePlannerPage() {
       <PageTitle
         actions={
           <>
-            <Button disabled={!calculations.isValid || isSaving} icon={<Save size={16} />} onClick={() => void saveTrade('draft')} variant="secondary">
+            <Button disabled={!calculations.isValid || isSaving || monthlyTradeLimitReached} icon={<Save size={16} />} onClick={() => void saveTrade('draft')} variant="secondary">
               Save as Draft
             </Button>
-            <Button disabled={!calculations.isValid || isSaving} icon={<Send size={16} />} onClick={() => void saveAndGoToSignals()}>
+            <Button disabled={!calculations.isValid || isSaving || monthlyTradeLimitReached} icon={<Send size={16} />} onClick={() => void saveAndGoToSignals()}>
               Generate Signal
             </Button>
           </>
@@ -176,6 +193,20 @@ export function TradePlannerPage() {
               <h2 className="text-sm font-semibold text-red-200">Daily risk limit reached.</h2>
               <p className="mt-2 text-sm leading-6 text-red-100">
                 Your preset risk limit has been reached. New non-draft trade creation is disabled while lock-after-loss is enabled.
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+      ) : null}
+
+      {monthlyTradeLimitReached ? (
+        <GlassCard className="border-gold-400/30 bg-gold-500/10">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 text-gold-400" size={20} />
+            <div>
+              <h2 className="text-sm font-semibold text-white">Monthly trade limit reached</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {packageAccess.packageName} includes {packageAccess.maxTrades} trades per month. Upgrade to Pro or Business for higher limits.
               </p>
             </div>
           </div>
@@ -281,7 +312,7 @@ export function TradePlannerPage() {
               This platform is for trade planning, journaling, and risk management only. It does not provide financial advice.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button disabled={!calculations.isValid || isSaving || tradeCreationLocked} icon={<Save size={16} />} type="submit">
+            <Button disabled={!calculations.isValid || isSaving || tradeCreationLocked || monthlyTradeLimitReached} icon={<Save size={16} />} type="submit">
                 {isSaving ? 'Saving...' : 'Save Trade Plan'}
               </Button>
               <Button icon={<RotateCcw size={16} />} onClick={resetForm} variant="secondary">

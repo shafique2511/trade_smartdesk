@@ -10,6 +10,7 @@ import { PageTitle } from '../../components/ui/PageTitle'
 import { Select } from '../../components/ui/Select'
 import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
+import { usePackageAccess } from '../../hooks/usePackageAccess'
 import { useToast } from '../../hooks/useToast'
 import {
   defaultLocalSettings,
@@ -32,6 +33,7 @@ type PageMessage = {
 
 export function SettingsPage() {
   const { profile, refreshProfile, user } = useAuth()
+  const packageAccess = usePackageAccess()
   const { showToast } = useToast()
   const [fullName, setFullName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -107,6 +109,11 @@ export function SettingsPage() {
     event.preventDefault()
     if (!user) return
 
+    if (!packageAccess.features.branding) {
+      setMessage({ type: 'error', text: 'Branding settings require the Business package.' })
+      return
+    }
+
     setIsSavingLocal(true)
     saveLocalSettings(user.id, localSettings)
     setIsSavingLocal(false)
@@ -115,6 +122,11 @@ export function SettingsPage() {
   }
 
   function runExport(action: () => void, title: string) {
+    if (!packageAccess.features.exportCsv) {
+      showToast({ tone: 'error', title: 'Export locked', description: 'CSV exports require the Pro or Business package.' })
+      return
+    }
+
     action()
     showToast({ tone: 'success', title, description: 'Your CSV download has started.' })
   }
@@ -161,24 +173,33 @@ export function SettingsPage() {
               <p className="text-sm text-slate-500">Local preferences for signal and workspace presentation.</p>
             </div>
           </div>
+          {!packageAccess.features.branding ? (
+            <div className="mb-4 rounded-lg border border-gold-400/30 bg-gold-500/10 p-4 text-sm leading-6 text-slate-300">
+              Branding settings require Business. Business unlocks custom signal footers, app display naming, logo URL, and brand color controls.
+            </div>
+          ) : null}
           <form className="grid gap-4" onSubmit={saveLocalPreferences}>
             <Input
+              disabled={!packageAccess.features.branding}
               label="App display name"
               onChange={(event) => setLocalSettings((current) => ({ ...current, branding: { ...current.branding, appDisplayName: event.target.value } }))}
               value={localSettings.branding.appDisplayName}
             />
             <Textarea
+              disabled={!packageAccess.features.branding}
               label="Signal footer"
               onChange={(event) => setLocalSettings((current) => ({ ...current, branding: { ...current.branding, signalFooter: event.target.value } }))}
               value={localSettings.branding.signalFooter}
             />
             <Input
+              disabled={!packageAccess.features.branding}
               label="Logo URL"
               onChange={(event) => setLocalSettings((current) => ({ ...current, branding: { ...current.branding, logoUrl: event.target.value } }))}
               placeholder="https://..."
               value={localSettings.branding.logoUrl}
             />
             <Input
+              disabled={!packageAccess.features.branding}
               label="Brand color"
               onChange={(event) => setLocalSettings((current) => ({ ...current, branding: { ...current.branding, brandColor: event.target.value } }))}
               type="color"
@@ -203,7 +224,7 @@ export function SettingsPage() {
                 <option value="blue">Blue</option>
               </Select>
             </div>
-            <Button disabled={isSavingLocal} icon={<Save size={16} />} type="submit">
+            <Button disabled={isSavingLocal || !packageAccess.features.branding} icon={<Save size={16} />} type="submit">
               {isSavingLocal ? 'Saving...' : 'Save branding'}
             </Button>
           </form>
@@ -213,7 +234,9 @@ export function SettingsPage() {
       <section className="grid gap-5 xl:grid-cols-3">
         <GlassCard>
           <h2 className="text-lg font-semibold text-white">Telegram Settings</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Configure bot token, channel ID, and footer.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            {packageAccess.features.telegramSend ? 'Configure bot token, channel ID, and footer.' : 'Telegram delivery requires Pro or Business.'}
+          </p>
           <Link className="mt-5 inline-flex" to="/telegram"><Button variant="secondary">Open Telegram Settings</Button></Link>
         </GlassCard>
         <GlassCard>
@@ -239,12 +262,17 @@ export function SettingsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={() => runExport(() => exportTradesCsv(trades), 'Trades export ready')} variant="secondary">Export trades CSV</Button>
-          <Button onClick={() => runExport(() => exportJournalCsv(journalEntries, trades), 'Journal export ready')} variant="secondary">Export journal CSV</Button>
-          <Button onClick={() => runExport(() => exportAnalyticsCsv(trades), 'Analytics export ready')} variant="secondary">Export analytics CSV</Button>
-          <Button onClick={() => runExport(() => exportMonthlyPerformanceReport(trades), 'Monthly report ready')} variant="secondary">Monthly performance report</Button>
-          <Button onClick={() => runExport(exportTradeReportPlaceholder, 'Report placeholder ready')} variant="secondary">Trade report PDF placeholder</Button>
+          <Button disabled={!packageAccess.features.exportCsv} onClick={() => runExport(() => exportTradesCsv(trades), 'Trades export ready')} variant="secondary">Export trades CSV</Button>
+          <Button disabled={!packageAccess.features.exportCsv} onClick={() => runExport(() => exportJournalCsv(journalEntries, trades), 'Journal export ready')} variant="secondary">Export journal CSV</Button>
+          <Button disabled={!packageAccess.features.exportCsv} onClick={() => runExport(() => exportAnalyticsCsv(trades), 'Analytics export ready')} variant="secondary">Export analytics CSV</Button>
+          <Button disabled={!packageAccess.features.exportCsv} onClick={() => runExport(() => exportMonthlyPerformanceReport(trades), 'Monthly report ready')} variant="secondary">Monthly performance report</Button>
+          <Button disabled={!packageAccess.features.exportCsv} onClick={() => runExport(exportTradeReportPlaceholder, 'Report placeholder ready')} variant="secondary">Trade report PDF placeholder</Button>
         </div>
+        {!packageAccess.features.exportCsv ? (
+          <div className="mt-5 rounded-lg border border-gold-400/30 bg-gold-500/10 p-4 text-sm leading-6 text-slate-300">
+            CSV exports and report downloads are available on Pro and Business packages.
+          </div>
+        ) : null}
       </GlassCard>
 
       <GlassCard>

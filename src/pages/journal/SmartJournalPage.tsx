@@ -12,6 +12,8 @@ import { Select } from '../../components/ui/Select'
 import { Table } from '../../components/ui/Table'
 import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
+import { usePackageAccess } from '../../hooks/usePackageAccess'
+import { countRecordsThisMonth, isLimitReached } from '../../lib/packageAccess'
 import {
   buildJournalInsert,
   buildJournalUpdate,
@@ -49,6 +51,7 @@ function getTradeLabel(trade: Trade) {
 
 export function SmartJournalPage() {
   const { user } = useAuth()
+  const packageAccess = usePackageAccess()
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [trades, setTrades] = useState<Trade[]>([])
   const [form, setForm] = useState<JournalForm>(initialJournalForm)
@@ -95,6 +98,8 @@ export function SmartJournalPage() {
   }, [trades])
 
   const filteredEntries = useMemo(() => filterJournalEntries(entries, trades, filters), [entries, filters, trades])
+  const monthlyJournalCount = useMemo(() => countRecordsThisMonth(entries), [entries])
+  const monthlyJournalLimitReached = isLimitReached(packageAccess.maxJournalEntries, monthlyJournalCount)
 
   function updateForm<Field extends keyof JournalForm>(field: Field, value: JournalForm[Field]) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -119,6 +124,11 @@ export function SmartJournalPage() {
   async function saveJournalEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!user) return
+
+    if (!editingEntryId && monthlyJournalLimitReached) {
+      setMessage({ type: 'error', text: `${packageAccess.packageName} allows ${packageAccess.maxJournalEntries} journal entries per month. Upgrade to create more entries.` })
+      return
+    }
 
     setIsSaving(true)
     setMessage(null)
@@ -209,6 +219,14 @@ export function SmartJournalPage() {
         </GlassCard>
       ) : null}
 
+      {monthlyJournalLimitReached && !editingEntryId ? (
+        <GlassCard className="border-gold-400/30 bg-gold-500/10">
+          <p className="text-sm leading-6 text-slate-300">
+            Monthly journal limit reached for {packageAccess.packageName}. You can still edit existing entries, or upgrade for higher limits.
+          </p>
+        </GlassCard>
+      ) : null}
+
       <form className="grid gap-5 xl:grid-cols-[1fr_0.8fr]" onSubmit={saveJournalEntry}>
         <GlassCard>
           <div className="mb-5">
@@ -256,7 +274,7 @@ export function SmartJournalPage() {
             ))}
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button disabled={isSaving} icon={<Save size={16} />} type="submit">
+            <Button disabled={isSaving || (!editingEntryId && monthlyJournalLimitReached)} icon={<Save size={16} />} type="submit">
               {isSaving ? 'Saving...' : editingEntryId ? 'Update Journal' : 'Add Journal'}
             </Button>
             <Button onClick={resetForm} variant="secondary">Reset</Button>

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { FeatureGate } from '../../components/billing/FeatureGate'
 import { Bot, CheckCircle2, Save, Send, ShieldCheck } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -149,7 +150,11 @@ export function TelegramSettingsPage() {
   }
 
   return (
-    <>
+    <FeatureGate
+      description="Telegram Bot API delivery is available on Pro and Business. Starter users can still copy signal templates manually."
+      feature="telegramSend"
+      title="Telegram integration is locked"
+    >
       <PageTitle
         actions={
           <>
@@ -245,6 +250,6 @@ export function TelegramSettingsPage() {
           </div>
         </GlassCard>
       </section>
-    </>
+    </FeatureGate>
   )
 }

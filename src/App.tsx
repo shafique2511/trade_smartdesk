@@ -6,6 +6,7 @@ import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
+import { UpgradePage } from './pages/billing/UpgradePage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage'
 import { MarketWatchPage } from './pages/market/MarketWatchPage'
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/risk-desk" element={<RiskDeskPage />} />
           <Route path="/telegram" element={<TelegramSettingsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/upgrade" element={<UpgradePage />} />
         </Route>
       </Route>
       <Route element={<ProtectedRoute adminOnly />}>

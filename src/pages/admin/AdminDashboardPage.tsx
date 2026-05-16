@@ -132,6 +132,52 @@ export function AdminDashboardPage() {
     }
   }
 
+  async function assignUserPackage(userId: string, packageId: string | null) {
+    await updateUser(userId, { package_id: packageId })
+
+    if (!packageId) return
+
+    const existingSubscription = subscriptions.find((subscription) => subscription.user_id === userId && ['trial', 'active'].includes(subscription.status))
+
+    if (existingSubscription) {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .update({ package_id: packageId, status: 'active' })
+        .eq('id', existingSubscription.id)
+        .select('*')
+        .single()
+
+      if (error) {
+        setMessage({ type: 'error', text: error.message })
+        return
+      }
+
+      setSubscriptions((current) => current.map((subscription) => subscription.id === existingSubscription.id ? data : subscription))
+      setMessage({ type: 'success', text: 'Package and active subscription updated.' })
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .insert({
+        user_id: userId,
+        package_id: packageId,
+        status: 'active',
+        start_date: new Date().toISOString(),
+        end_date: null,
+      })
+      .select('*')
+      .single()
+
+    if (error) {
+      setMessage({ type: 'error', text: error.message })
+      return
+    }
+
+    setSubscriptions((current) => [data, ...current])
+    setMessage({ type: 'success', text: 'Package assigned and subscription created.' })
+  }
+
   async function savePackage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsSaving(true)
@@ -257,7 +303,7 @@ export function AdminDashboardPage() {
                 <option value="manager">Manager</option>
                 <option value="trader">Trader</option>
               </Select>,
-              <Select aria-label="Package" onChange={(event) => void updateUser(user.id, { package_id: event.target.value || null })} value={user.package_id ?? ''}>
+              <Select aria-label="Package" onChange={(event) => void assignUserPackage(user.id, event.target.value || null)} value={user.package_id ?? ''}>
                 <option value="">No package</option>
                 {packages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}</option>)}
               </Select>,

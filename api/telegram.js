@@ -41,6 +41,12 @@ function sanitizeTelegramResult(result) {
   }
 }
 
+function isPackageTelegramEnabled(pkg) {
+  if (!pkg) return false
+  const name = String(pkg.name || '').toLowerCase()
+  return pkg.telegram_enabled === true && (name === 'pro' || name === 'business')
+}
+
 async function callTelegram(botToken, method, body) {
   const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
     method: 'POST',
@@ -96,6 +102,52 @@ export default async function handler(request, response) {
   }
 
   const userId = userData.user.id
+
+  const { data: profile, error: profileError } = await serviceClient
+    .from('user_profiles')
+    .select('package_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (profileError) {
+    sendJson(response, 500, { ok: false, error: profileError.message })
+    return
+  }
+
+  const { data: subscription, error: subscriptionError } = await serviceClient
+    .from('subscriptions')
+    .select('package_id, status, end_date')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (subscriptionError) {
+    sendJson(response, 500, { ok: false, error: subscriptionError.message })
+    return
+  }
+
+  const subscriptionExpired = subscription?.end_date ? new Date(subscription.end_date).getTime() < Date.now() : false
+  const subscriptionValid = !subscription || (['trial', 'active'].includes(subscription.status) && !subscriptionExpired)
+  if (!subscriptionValid) {
+    sendJson(response, 403, { ok: false, error: 'Subscription is not active.' })
+    return
+  }
+
+  const packageId = subscription?.package_id || profile?.package_id
+  const { data: packageData, error: packageError } = packageId
+    ? await serviceClient.from('packages').select('name, telegram_enabled').eq('id', packageId).maybeSingle()
+    : { data: null, error: null }
+
+  if (packageError) {
+    sendJson(response, 500, { ok: false, error: packageError.message })
+    return
+  }
+
+  if (!isPackageTelegramEnabled(packageData)) {
+    sendJson(response, 403, { ok: false, error: 'Telegram sending requires the Pro or Business package.' })
+    return
+  }
 
   const { data: settings, error: settingsError } = await serviceClient
     .from('telegram_settings')

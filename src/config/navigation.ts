@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bot,
+  CreditCard,
   Gauge,
   LayoutDashboard,
   LineChart,
@@ -24,5 +25,6 @@ export const navigationItems: NavigationItem[] = [
   { label: 'Telegram', path: '/telegram', icon: Bot },
   { label: 'Team Overview', path: '/team', icon: Users, roles: ['manager', 'admin'] },
   { label: 'Admin', path: '/admin', icon: ShieldCheck, roles: ['admin'] },
+  { label: 'Upgrade', path: '/upgrade', icon: CreditCard },
   { label: 'Settings', path: '/settings', icon: Settings },
 ]

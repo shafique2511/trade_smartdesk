@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import type { Database, Subscription, UserProfile } from '../types/database'
+import type { Database, Package, Subscription, UserProfile } from '../types/database'
 import { AuthContext, type AuthContextValue } from './auth-context'
 
 function isSubscriptionValid(subscription: Subscription | null) {
@@ -24,10 +24,25 @@ async function getLatestSubscription(userId: string) {
   return data
 }
 
+async function getActivePackage(profile: UserProfile | null, subscription: Subscription | null) {
+  const packageId = subscription?.package_id ?? profile?.package_id
+  if (!packageId) return null
+
+  const { data, error } = await supabase
+    .from('packages')
+    .select('*')
+    .eq('id', packageId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [activePackage, setActivePackage] = useState<Package | null>(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
 
@@ -37,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!activeSession?.user) {
       setProfile(null)
       setSubscription(null)
+      setActivePackage(null)
       return
     }
 
@@ -48,8 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (profileError) throw profileError
 
+    const latestSubscription = await getLatestSubscription(activeSession.user.id)
+    const packageData = await getActivePackage(userProfile, latestSubscription)
+
     setProfile(userProfile)
-    setSubscription(await getLatestSubscription(activeSession.user.id))
+    setSubscription(latestSubscription)
+    setActivePackage(packageData)
   }, [])
 
   const refreshProfile = useCallback(async () => {
@@ -158,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null)
     setProfile(null)
     setSubscription(null)
+    setActivePackage(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(() => {
@@ -168,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       subscription,
+      activePackage,
       loading,
       authReady: !loading,
       authError,
@@ -182,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       refreshProfile,
     }
-  }, [authError, loading, profile, refreshProfile, resetPassword, session, signIn, signOut, signUp, subscription])
+  }, [activePackage, authError, loading, profile, refreshProfile, resetPassword, session, signIn, signOut, signUp, subscription])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

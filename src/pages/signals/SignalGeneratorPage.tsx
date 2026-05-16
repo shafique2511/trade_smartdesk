@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Clipboard, History, RefreshCw, Send } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
+import { UpgradePrompt } from '../../components/billing/UpgradePrompt'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { GlassCard } from '../../components/ui/GlassCard'
@@ -11,6 +12,7 @@ import { Select } from '../../components/ui/Select'
 import { Table } from '../../components/ui/Table'
 import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
+import { usePackageAccess } from '../../hooks/usePackageAccess'
 import { formatSignalMessage, signalTemplateOptions } from '../../lib/signals'
 import { supabase } from '../../lib/supabase'
 import { callTelegramApi } from '../../lib/telegram'
@@ -37,6 +39,7 @@ function formatTradeLabel(trade: Trade) {
 
 export function SignalGeneratorPage() {
   const { user } = useAuth()
+  const packageAccess = usePackageAccess()
   const [trades, setTrades] = useState<Trade[]>([])
   const [signalLogs, setSignalLogs] = useState<SignalLog[]>([])
   const [selectedTradeId, setSelectedTradeId] = useState('')
@@ -154,6 +157,12 @@ export function SignalGeneratorPage() {
   async function confirmTelegramSend() {
     if (!selectedTrade) return
 
+    if (!packageAccess.features.telegramSend) {
+      setStatusMessage({ type: 'error', text: 'Telegram sending requires the Pro or Business package.' })
+      setConfirmTelegramOpen(false)
+      return
+    }
+
     setIsSendingTelegram(true)
     const response = await callTelegramApi({
       action: 'send_message',
@@ -195,7 +204,7 @@ export function SignalGeneratorPage() {
             <Button disabled={!selectedTrade || isLogging} icon={<Clipboard size={16} />} onClick={() => void copySignal()} variant="secondary">
               Copy Signal
             </Button>
-            <Button disabled={!selectedTrade || isLogging || isSendingTelegram} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
+            <Button disabled={!selectedTrade || isLogging || isSendingTelegram || !packageAccess.features.telegramSend} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
               Send to Telegram
             </Button>
           </>
@@ -253,7 +262,7 @@ export function SignalGeneratorPage() {
               <Button disabled={isLogging} icon={<Clipboard size={16} />} onClick={() => void copySignal()} variant="secondary">
                 Copy Signal
               </Button>
-              <Button disabled={isLogging || isSendingTelegram} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
+              <Button disabled={isLogging || isSendingTelegram || !packageAccess.features.telegramSend} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
                 Send to Telegram
               </Button>
             </div>
@@ -261,22 +270,34 @@ export function SignalGeneratorPage() {
         </section>
       )}
 
-      <GlassCard>
-        <div className="mb-5 flex items-center gap-3">
-          <div className="rounded-lg border border-gold-400/30 bg-gold-500/10 p-2 text-gold-400">
-            <History size={18} />
+      {!packageAccess.features.telegramSend ? (
+        <UpgradePrompt
+          description="Starter supports manual signal copy. Upgrade to Pro or Business to send manually confirmed messages through Telegram."
+          feature="telegramSend"
+          title="Telegram sending is locked"
+        />
+      ) : null}
+
+      {packageAccess.features.signalLogs ? (
+        <GlassCard>
+          <div className="mb-5 flex items-center gap-3">
+            <div className="rounded-lg border border-gold-400/30 bg-gold-500/10 p-2 text-gold-400">
+              <History size={18} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Signal Logs</h2>
+              <p className="text-sm text-slate-500">Every copied or confirmed signal action is logged.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Signal Logs</h2>
-            <p className="text-sm text-slate-500">Every copied or confirmed signal action is logged.</p>
-          </div>
-        </div>
-        {signalLogs.length > 0 ? (
-          <Table columns={['Channel', 'Type', 'Trade', 'Created']} rows={logRows} />
-        ) : (
-          <EmptyState description="Copied and Telegram-confirmed signal actions will appear here." title="No signal logs yet" />
-        )}
-      </GlassCard>
+          {signalLogs.length > 0 ? (
+            <Table columns={['Channel', 'Type', 'Trade', 'Created']} rows={logRows} />
+          ) : (
+            <EmptyState description="Copied and Telegram-confirmed signal actions will appear here." title="No signal logs yet" />
+          )}
+        </GlassCard>
+      ) : (
+        <UpgradePrompt description="Signal history is available on Pro and Business packages." feature="signalLogs" title="Signal logs are locked" />
+      )}
 
       <Modal isOpen={confirmTelegramOpen} onClose={() => setConfirmTelegramOpen(false)} title="Confirm Telegram Send">
         <div className="grid gap-4">
