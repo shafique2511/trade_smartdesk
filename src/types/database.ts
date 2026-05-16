@@ -94,6 +94,17 @@ export type RiskSettings = {
   updated_at: string
 }
 
+export type SignalLog = {
+  id: string
+  user_id: string
+  trade_id: string | null
+  signal_type: string
+  message: string
+  sent_to_telegram: boolean
+  telegram_response: unknown
+  created_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -194,6 +205,21 @@ export type Database = {
           updated_at?: string
         }
         Update: Partial<Omit<RiskSettings, 'id' | 'user_id' | 'created_at'>>
+        Relationships: []
+      }
+      signal_logs: {
+        Row: SignalLog
+        Insert: {
+          id?: string
+          user_id: string
+          trade_id?: string | null
+          signal_type: string
+          message: string
+          sent_to_telegram?: boolean
+          telegram_response?: unknown
+          created_at?: string
+        }
+        Update: Partial<Omit<SignalLog, 'id' | 'user_id' | 'created_at'>>
         Relationships: []
       }
     }
