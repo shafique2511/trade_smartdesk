@@ -13,6 +13,10 @@ function getBearerToken(request) {
   return header.startsWith('Bearer ') ? header.slice(7) : null
 }
 
+function isValidAction(action) {
+  return action === 'test_connection' || action === 'send_message'
+}
+
 function sanitizeTelegramResult(result) {
   if (!result || typeof result !== 'object') return result
 
@@ -81,6 +85,16 @@ export default async function handler(request, response) {
   }
 
   const { action, message, tradeId, signalType, messageType } = request.body || {}
+  if (!isValidAction(action)) {
+    sendJson(response, 400, { ok: false, error: 'Unsupported Telegram action.' })
+    return
+  }
+
+  if (typeof message === 'string' && message.length > 4096) {
+    sendJson(response, 400, { ok: false, error: 'Telegram message must be 4096 characters or fewer.' })
+    return
+  }
+
   const userId = userData.user.id
 
   const { data: settings, error: settingsError } = await serviceClient
