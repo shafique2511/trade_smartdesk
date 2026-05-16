@@ -14,6 +14,8 @@ import {
   defaultLocalSettings,
   exportAnalyticsCsv,
   exportJournalCsv,
+  exportMonthlyPerformanceReport,
+  exportTradeReportPlaceholder,
   exportTradesCsv,
   loadLocalSettings,
   saveLocalSettings,
@@ -224,13 +226,15 @@ export function SettingsPage() {
           <Download className="text-gold-400" size={22} />
           <div>
             <h2 className="text-lg font-semibold text-white">Export Data</h2>
-            <p className="text-sm text-slate-500">Export current user data. Phase 14 expands this into the full export system.</p>
+            <p className="text-sm text-slate-500">Export current user data with clean Trading SmartDesk filenames.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button onClick={() => exportTradesCsv(trades)} variant="secondary">Export trades CSV</Button>
           <Button onClick={() => exportJournalCsv(journalEntries, trades)} variant="secondary">Export journal CSV</Button>
           <Button onClick={() => exportAnalyticsCsv(trades)} variant="secondary">Export analytics CSV</Button>
+          <Button onClick={() => exportMonthlyPerformanceReport(trades)} variant="secondary">Monthly performance report</Button>
+          <Button onClick={exportTradeReportPlaceholder} variant="secondary">Trade report PDF placeholder</Button>
         </div>
       </GlassCard>
 
