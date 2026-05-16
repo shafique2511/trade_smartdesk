@@ -48,6 +48,19 @@ button {
   cursor: pointer;
 }
 
+button,
+a,
+input,
+select,
+textarea {
+  transition-duration: 160ms;
+}
+
+::selection {
+  background: rgba(212, 175, 55, 0.28);
+  color: #ffffff;
+}
+
 #root {
   min-height: 100vh;
 }

@@ -10,6 +10,7 @@ import { PageTitle } from '../../components/ui/PageTitle'
 import { Select } from '../../components/ui/Select'
 import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
+import { useToast } from '../../hooks/useToast'
 import {
   defaultLocalSettings,
   exportAnalyticsCsv,
@@ -31,6 +32,7 @@ type PageMessage = {
 
 export function SettingsPage() {
   const { profile, refreshProfile, user } = useAuth()
+  const { showToast } = useToast()
   const [fullName, setFullName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [localSettings, setLocalSettings] = useState<LocalSettings>(defaultLocalSettings)
@@ -98,6 +100,7 @@ export function SettingsPage() {
 
     await refreshProfile()
     setMessage({ type: 'success', text: 'Profile settings saved.' })
+    showToast({ tone: 'success', title: 'Profile saved', description: 'Your profile settings were updated.' })
   }
 
   function saveLocalPreferences(event: FormEvent<HTMLFormElement>) {
@@ -108,6 +111,12 @@ export function SettingsPage() {
     saveLocalSettings(user.id, localSettings)
     setIsSavingLocal(false)
     setMessage({ type: 'success', text: 'Branding and theme settings saved locally.' })
+    showToast({ tone: 'success', title: 'Preferences saved', description: 'Branding and theme settings were stored locally.' })
+  }
+
+  function runExport(action: () => void, title: string) {
+    action()
+    showToast({ tone: 'success', title, description: 'Your CSV download has started.' })
   }
 
   if (isLoading) return <LoadingState label="Loading settings" />
@@ -230,11 +239,11 @@ export function SettingsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={() => exportTradesCsv(trades)} variant="secondary">Export trades CSV</Button>
-          <Button onClick={() => exportJournalCsv(journalEntries, trades)} variant="secondary">Export journal CSV</Button>
-          <Button onClick={() => exportAnalyticsCsv(trades)} variant="secondary">Export analytics CSV</Button>
-          <Button onClick={() => exportMonthlyPerformanceReport(trades)} variant="secondary">Monthly performance report</Button>
-          <Button onClick={exportTradeReportPlaceholder} variant="secondary">Trade report PDF placeholder</Button>
+          <Button onClick={() => runExport(() => exportTradesCsv(trades), 'Trades export ready')} variant="secondary">Export trades CSV</Button>
+          <Button onClick={() => runExport(() => exportJournalCsv(journalEntries, trades), 'Journal export ready')} variant="secondary">Export journal CSV</Button>
+          <Button onClick={() => runExport(() => exportAnalyticsCsv(trades), 'Analytics export ready')} variant="secondary">Export analytics CSV</Button>
+          <Button onClick={() => runExport(() => exportMonthlyPerformanceReport(trades), 'Monthly report ready')} variant="secondary">Monthly performance report</Button>
+          <Button onClick={() => runExport(exportTradeReportPlaceholder, 'Report placeholder ready')} variant="secondary">Trade report PDF placeholder</Button>
         </div>
       </GlassCard>
 

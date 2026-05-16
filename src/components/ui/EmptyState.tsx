@@ -11,7 +11,7 @@ type EmptyStateProps = {
 export function EmptyState({ action, description, title }: EmptyStateProps) {
   return (
     <GlassCard className="flex min-h-56 flex-col items-center justify-center text-center">
-      <div className="mb-4 rounded-full border border-slate-700 bg-slate-900 p-3 text-gold-400">
+      <div className="mb-4 rounded-full border border-gold-400/30 bg-gold-500/10 p-3 text-gold-400 shadow-lg shadow-gold-500/5">
         <Inbox size={24} />
       </div>
       <h3 className="text-lg font-semibold text-white">{title}</h3>

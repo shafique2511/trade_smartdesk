@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { Toaster } from '../ui/Toaster'
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="min-h-screen lg:flex">
+      <Toaster />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onToggle={() => setSidebarOpen((value) => !value)} />
       <div className="min-w-0 flex-1">
         <Header />

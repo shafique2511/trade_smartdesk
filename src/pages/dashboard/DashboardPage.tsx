@@ -8,6 +8,7 @@ import {
   LineChart,
   NotebookPen,
   Radio,
+  Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
@@ -33,6 +34,7 @@ import { LoadingState } from '../../components/ui/LoadingState'
 import { PageTitle } from '../../components/ui/PageTitle'
 import { StatCard } from '../../components/ui/StatCard'
 import { Table } from '../../components/ui/Table'
+import { Tooltip as UiTooltip } from '../../components/ui/Tooltip'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCurrency, formatPercent, getDashboardData, type DashboardData, type RiskStatus } from '../../lib/dashboard'
 import type { Trade } from '../../types/database'
@@ -236,19 +238,49 @@ export function DashboardPage() {
         actions={
           <>
             <Link to="/trade-planner">
-              <Button icon={<ClipboardPlus size={16} />} variant="secondary">New Trade Plan</Button>
+              <UiTooltip content="Create a structured trade plan with transparent risk calculations.">
+                <Button icon={<ClipboardPlus size={16} />} variant="secondary">New Trade Plan</Button>
+              </UiTooltip>
             </Link>
             <Link to="/journal">
-              <Button icon={<NotebookPen size={16} />} variant="secondary">New Journal Entry</Button>
+              <UiTooltip content="Record execution notes, emotions, mistakes, and grade.">
+                <Button icon={<NotebookPen size={16} />} variant="secondary">New Journal Entry</Button>
+              </UiTooltip>
             </Link>
             <Link to="/signals">
-              <Button icon={<Radio size={16} />}>Generate Signal</Button>
+              <UiTooltip content="Format a saved trade into a manually confirmed signal.">
+                <Button icon={<Radio size={16} />}>Generate Signal</Button>
+              </UiTooltip>
             </Link>
           </>
         }
         description="Live workspace overview built from Supabase trades, journal entries, and risk settings."
         title="Dashboard"
       />
+
+      <GlassCard>
+        <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg border border-gold-400/30 bg-gold-500/10 p-2 text-gold-400">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Welcome onboarding</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-400">Start with a planned trade, then journal the execution after the result is known.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+              <p className="text-sm font-semibold text-white">First trade guide</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">Set entry, SL, TP levels, account balance, and risk percentage before saving a plan.</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+              <p className="text-sm font-semibold text-white">First journal guide</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">Link the trade, grade the setup, record mistakes, and keep notes factual.</p>
+            </div>
+          </div>
+        </div>
+      </GlassCard>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {stats.map((stat) => (
