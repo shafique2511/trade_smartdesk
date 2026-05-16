@@ -13,6 +13,7 @@ import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
 import { formatSignalMessage, signalTemplateOptions } from '../../lib/signals'
 import { supabase } from '../../lib/supabase'
+import { callTelegramApi } from '../../lib/telegram'
 import type { SignalLog, Trade } from '../../types/database'
 import type { SignalTemplateType } from '../../types/signals'
 
@@ -45,6 +46,7 @@ export function SignalGeneratorPage() {
   const [statusMessage, setStatusMessage] = useState<SignalMessage | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLogging, setIsLogging] = useState(false)
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false)
   const [confirmTelegramOpen, setConfirmTelegramOpen] = useState(false)
 
   const selectedTrade = useMemo(() => trades.find((trade) => trade.id === selectedTradeId) ?? null, [selectedTradeId, trades])
@@ -150,12 +152,28 @@ export function SignalGeneratorPage() {
   }
 
   async function confirmTelegramSend() {
-    await logSignal(`telegram_queued:${templateType}`, false, {
-      phase: 7,
-      status: 'telegram_send_requires_phase_8',
+    if (!selectedTrade) return
+
+    setIsSendingTelegram(true)
+    const response = await callTelegramApi({
+      action: 'send_message',
+      message: messageText,
+      tradeId: selectedTrade.id,
+      signalType: templateType,
+      messageType: templateType === 'new_signal' ? 'new_signal' : templateType === 'move_sl_be' ? 'be_update' : templateType === 'sl_hit' ? 'sl_update' : 'tp_update',
     })
+    setIsSendingTelegram(false)
+
+    if (!response.ok) {
+      setStatusMessage({ type: 'error', text: response.error ?? 'Telegram send failed.' })
+      return
+    }
+
+    const log = response.signalLog as SignalLog | undefined
+    if (log) setSignalLogs((current) => [log, ...current].slice(0, 10))
+
     setConfirmTelegramOpen(false)
-    setStatusMessage({ type: 'info', text: 'Telegram send requires Phase 8. The manual confirmation was logged.' })
+    setStatusMessage({ type: 'success', text: 'Telegram message sent and logged.' })
   }
 
   if (isLoading) {
@@ -177,7 +195,7 @@ export function SignalGeneratorPage() {
             <Button disabled={!selectedTrade || isLogging} icon={<Clipboard size={16} />} onClick={() => void copySignal()} variant="secondary">
               Copy Signal
             </Button>
-            <Button disabled={!selectedTrade || isLogging} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
+            <Button disabled={!selectedTrade || isLogging || isSendingTelegram} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
               Send to Telegram
             </Button>
           </>
@@ -235,7 +253,7 @@ export function SignalGeneratorPage() {
               <Button disabled={isLogging} icon={<Clipboard size={16} />} onClick={() => void copySignal()} variant="secondary">
                 Copy Signal
               </Button>
-              <Button disabled={isLogging} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
+              <Button disabled={isLogging || isSendingTelegram} icon={<Send size={16} />} onClick={() => setConfirmTelegramOpen(true)}>
                 Send to Telegram
               </Button>
             </div>
@@ -263,14 +281,16 @@ export function SignalGeneratorPage() {
       <Modal isOpen={confirmTelegramOpen} onClose={() => setConfirmTelegramOpen(false)} title="Confirm Telegram Send">
         <div className="grid gap-4">
           <p className="text-sm leading-6 text-slate-300">
-            Telegram delivery is implemented in Phase 8. This confirmation step is already enforced so no signal can be sent automatically.
+            Confirm this Telegram message manually. No signal is sent automatically.
           </p>
           <div className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950/60 p-3 whitespace-pre-wrap text-sm text-slate-300">
             {messageText}
           </div>
           <div className="flex flex-wrap justify-end gap-3">
             <Button onClick={() => setConfirmTelegramOpen(false)} variant="secondary">Cancel</Button>
-            <Button onClick={() => void confirmTelegramSend()}>Confirm Manually</Button>
+            <Button disabled={isSendingTelegram} onClick={() => void confirmTelegramSend()}>
+              {isSendingTelegram ? 'Sending...' : 'Confirm and Send'}
+            </Button>
           </div>
         </div>
       </Modal>

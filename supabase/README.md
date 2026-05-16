@@ -26,4 +26,15 @@ The frontend expects these environment variables:
 ```bash
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` is used only by server/API routes. Do not expose it in browser code.
+
+For local Telegram API testing, run the app through Vercel dev so `/api/telegram` is available:
+
+```bash
+vercel dev
+```
+
+Plain `npm.cmd run dev` runs the Vite frontend only.

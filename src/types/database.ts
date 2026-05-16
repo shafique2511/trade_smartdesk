@@ -105,6 +105,18 @@ export type SignalLog = {
   created_at: string
 }
 
+export type TelegramSettings = {
+  id: string
+  user_id: string
+  bot_token: string | null
+  channel_id: string | null
+  default_footer: string | null
+  branding_enabled: boolean
+  is_connected: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -220,6 +232,22 @@ export type Database = {
           created_at?: string
         }
         Update: Partial<Omit<SignalLog, 'id' | 'user_id' | 'created_at'>>
+        Relationships: []
+      }
+      telegram_settings: {
+        Row: TelegramSettings
+        Insert: {
+          id?: string
+          user_id: string
+          bot_token?: string | null
+          channel_id?: string | null
+          default_footer?: string | null
+          branding_enabled?: boolean
+          is_connected?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Omit<TelegramSettings, 'id' | 'user_id' | 'created_at'>>
         Relationships: []
       }
     }
