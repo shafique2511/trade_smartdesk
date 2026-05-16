@@ -121,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/login`,
         data: {
           full_name: fullName,
         },
@@ -129,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (error) return { error }
 
-    if (data.user) {
+    if (data.user && data.session) {
       const profilePayload: Database['public']['Tables']['user_profiles']['Insert'] = {
         id: data.user.id,
         email,
