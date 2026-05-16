@@ -11,6 +11,7 @@ import { StatCard } from '../../components/ui/StatCard'
 import { Table } from '../../components/ui/Table'
 import { Textarea } from '../../components/ui/Textarea'
 import { useAuth } from '../../hooks/useAuth'
+import { calculateDailyProfitLoss, getRiskStatus, getTodayTrades, shouldLockNewTrades } from '../../lib/risk'
 import { supabase } from '../../lib/supabase'
 import {
   buildTradeInsert,
@@ -19,7 +20,7 @@ import {
   setupTypes,
   tradeStatuses,
 } from '../../lib/tradePlanner'
-import type { TradeStatus } from '../../types/database'
+import type { RiskSettings, Trade, TradeStatus } from '../../types/database'
 import type { TradePlannerForm } from '../../types/tradePlanner'
 
 type PlannerMessage = {
@@ -42,6 +43,8 @@ export function TradePlannerPage() {
   const [selectedFileName, setSelectedFileName] = useState('')
   const [message, setMessage] = useState<PlannerMessage | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [riskSettings, setRiskSettings] = useState<RiskSettings | null>(null)
+  const [todayTrades, setTodayTrades] = useState<Trade[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -49,8 +52,17 @@ export function TradePlannerPage() {
     async function loadRiskDefaults() {
       if (!user) return
 
-      const { data } = await supabase.from('risk_settings').select('*').eq('user_id', user.id).maybeSingle()
-      if (cancelled || !data) return
+      const [settingsResult, tradesResult] = await Promise.all([
+        supabase.from('risk_settings').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('trades').select('*').eq('user_id', user.id).gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+      ])
+
+      if (cancelled) return
+
+      const data = settingsResult.data
+      setRiskSettings(data ?? null)
+      setTodayTrades(getTodayTrades(tradesResult.data ?? []))
+      if (!data) return
 
       setForm((current) => ({
         ...current,
@@ -67,6 +79,9 @@ export function TradePlannerPage() {
   }, [user])
 
   const calculations = useMemo(() => calculateTradePlan(form), [form])
+  const dailyProfitLoss = useMemo(() => calculateDailyProfitLoss(todayTrades), [todayTrades])
+  const riskStatus = useMemo(() => getRiskStatus(riskSettings, dailyProfitLoss, todayTrades.length), [dailyProfitLoss, riskSettings, todayTrades.length])
+  const tradeCreationLocked = shouldLockNewTrades(riskSettings, riskStatus)
 
   function updateField<Field extends keyof TradePlannerForm>(field: Field, value: TradePlannerForm[Field]) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -95,6 +110,11 @@ export function TradePlannerPage() {
       return null
     }
 
+    if (tradeCreationLocked && statusOverride !== 'draft') {
+      setMessage({ type: 'error', text: 'Daily risk limit reached.' })
+      return null
+    }
+
     setIsSaving(true)
     setMessage(null)
 
@@ -109,6 +129,7 @@ export function TradePlannerPage() {
     }
 
     setMessage({ type: 'success', text: `Trade plan saved as ${statusOverride ?? form.status}.` })
+    setTodayTrades((current) => [data, ...current])
     return data
   }
 
@@ -146,6 +167,20 @@ export function TradePlannerPage() {
         description="Plan entries, targets, transparent risk, and validation before a trade is saved."
         title="Trade Planner"
       />
+
+      {tradeCreationLocked ? (
+        <GlassCard className="border-loss-500/30 bg-loss-500/10">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 text-loss-500" size={20} />
+            <div>
+              <h2 className="text-sm font-semibold text-red-200">Daily risk limit reached.</h2>
+              <p className="mt-2 text-sm leading-6 text-red-100">
+                Your preset risk limit has been reached. New non-draft trade creation is disabled while lock-after-loss is enabled.
+              </p>
+            </div>
+          </div>
+        </GlassCard>
+      ) : null}
 
       <form className="grid gap-6" onSubmit={handleSubmit}>
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -246,7 +281,7 @@ export function TradePlannerPage() {
               This platform is for trade planning, journaling, and risk management only. It does not provide financial advice.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button disabled={!calculations.isValid || isSaving} icon={<Save size={16} />} type="submit">
+              <Button disabled={!calculations.isValid || isSaving || tradeCreationLocked} icon={<Save size={16} />} type="submit">
                 {isSaving ? 'Saving...' : 'Save Trade Plan'}
               </Button>
               <Button icon={<RotateCcw size={16} />} onClick={resetForm} variant="secondary">
